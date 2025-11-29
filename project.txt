@@ -1,0 +1,81 @@
+import gradio as gr
+from google import genai
+
+# Initialize Gemini client
+client = genai.Client(api_key="AIzaSyB8s8XGBgxb1YpnbXSHpmFSxIygNyiW-1U")
+
+# ---------- Helper function for safe API call ----------
+def safe_generate(contents):
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=contents
+        )
+        return response.text
+    except Exception as e:
+        return f"⚠️ Error: {str(e)}"
+
+
+# ---------- 1. Image Input ----------
+def predict_from_image(image, lang):
+    my_file = client.files.upload(file=image)
+    return safe_generate([
+        my_file,
+        f"Identify crop disease from this image and give treatment suggestions. "
+        f"STRICTLY respond only in {lang}. Do not switch to any other language."
+    ])
+
+
+# ---------- 2. Text Input ----------
+def predict_from_text(text, lang):
+    return safe_generate([
+        f"Farmer's description of symptoms: {text}. "
+        f"Identify possible crop disease and give step-by-step treatment. "
+        f"STRICTLY respond only in {lang}. Do not switch to any other language."
+    ])
+
+
+# ---------- 3. Voice Input ----------
+def predict_from_audio(audio, lang):
+    my_file = client.files.upload(file=audio)
+    return safe_generate([
+        my_file,
+        f"Transcribe the farmer’s voice to text, then identify crop disease and suggest treatments. "
+        f"STRICTLY respond only in {lang}. Do not switch to any other language."
+    ])
+
+
+# ---------- Gradio UI ----------
+with gr.Blocks(title="AI-based Agriculture Disease Prediction") as demo:
+    gr.Markdown("🌱 **AI-based Agriculture Disease Prediction**\n\n"
+                "Upload a crop leaf image, describe symptoms in text, or use your voice "
+                "to detect plant diseases and get treatment suggestions.")
+
+    lang = gr.Dropdown(
+        ["English", "Hindi", "Telugu", "Tamil", "Kannada"],
+        value="English",
+        label="Select Language"
+    )
+
+    with gr.Tab("📷 Image Upload"):
+        with gr.Row():
+            image_input = gr.Image(type="filepath", label="Upload Crop Leaf Image")
+        img_output = gr.Markdown(label="Prediction & Suggestions")
+        img_button = gr.Button("Predict from Image")
+        img_button.click(predict_from_image, [image_input, lang], img_output)
+
+    with gr.Tab("⌨️ Text Input"):
+        text_input = gr.Textbox(label="Describe crop symptoms (e.g., yellow leaves, black spots)")
+        text_output = gr.Markdown(label="Prediction & Suggestions")
+        text_button = gr.Button("Predict from Text")
+        text_button.click(predict_from_text, [text_input, lang], text_output)
+
+    with gr.Tab("🎤 Voice Input"):
+        audio_input = gr.Audio(type="filepath", label="Upload/Record farmer's voice")
+        audio_output = gr.Markdown(label="Prediction & Suggestions")
+        audio_button = gr.Button("Predict from Voice")
+        audio_button.click(predict_from_audio, [audio_input, lang], audio_output)
+
+
+# ---------- Launch App ----------
+demo.launch()
